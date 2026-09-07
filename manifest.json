@@ -2,6 +2,7 @@
   "name": "12Uurtje",
   "short_name": "12Uurtje",
   "description": "Bijhouden en beoordelen van je 12uurtjes",
+  "version": "1.0",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

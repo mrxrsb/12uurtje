@@ -62,6 +62,12 @@
   h1 .num-accent{
     color: var(--mustard);
   }
+  .version{
+    font-size: 11px;
+    color: var(--ink-soft);
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+  }
   .stamp{
     text-align:right;
     flex-shrink:0;
@@ -204,6 +210,10 @@
   button.secondary:hover{ border-color: var(--ink-soft); color: var(--ink); }
 
   .list-title{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
     font-family:'Work Sans', sans-serif;
     font-size: 15px;
     letter-spacing: 0.4px;
@@ -211,6 +221,20 @@
     border-bottom: 1px solid var(--line);
     padding-bottom: 8px;
     margin-bottom: 4px;
+  }
+  .sort-select{
+    font-family: 'Work Sans', sans-serif;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 5px 8px;
+    cursor: pointer;
+  }
+  .sort-select:focus{
+    outline: none;
+    border-color: var(--mustard-deep);
   }
 
   .entry{
@@ -242,6 +266,11 @@
     font-family:'Work Sans', sans-serif;
     font-weight: 600;
     font-size: 18px;
+  }
+  .entry .city{
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-top: 1px;
   }
   .entry .price{
     font-size: 13px;
@@ -322,6 +351,7 @@
   @media (max-width: 480px){
     h1{ font-size: 34px; }
     .row{ flex-direction: column; gap: 10px; }
+    .row .field{ max-width: none !important; }
     .entry .date-col{ width: 48px; font-size: 11px; }
   }
 </style>
@@ -329,7 +359,10 @@
 <body>
 <div class="wrap">
   <header>
-    <h1><span class="num-accent">12</span>Uurtje</h1>
+    <div>
+      <h1><span class="num-accent">12</span>Uurtje</h1>
+      <div class="version">v1.0</div>
+    </div>
     <div class="stamp">
       <div class="num" id="avgNum">–</div>
       <div class="lbl" id="countLbl">0 12uurtjes</div>
@@ -349,19 +382,25 @@
         <label for="place">Waar heb je gegeten?</label>
         <input type="text" id="place" placeholder="bijv. Bakkerij Van Dijk" required>
       </div>
-      <div class="field" style="max-width: 130px;">
+      <div class="field" style="max-width: 148px;">
         <label for="date">Datum</label>
-        <input type="date" id="date">
+        <input type="date" id="date" style="text-align: right;">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="city">Plaats</label>
+        <input type="text" id="city" placeholder="bijv. Enschede">
+      </div>
+      <div class="field" style="max-width: 148px;">
+        <label for="price">Prijs (€)</label>
+        <input type="number" id="price" step="0.01" min="0" placeholder="3,50" style="text-align: right;">
       </div>
     </div>
     <div class="row">
       <div class="field">
         <label for="filling">Wat zat erin?</label>
         <input type="text" id="filling" placeholder="bijv. kaas, ham, ei">
-      </div>
-      <div class="field" style="max-width: 110px;">
-        <label for="price">Prijs (€)</label>
-        <input type="number" id="price" step="0.01" min="0" placeholder="3,50">
       </div>
     </div>
     <div class="row">
@@ -388,13 +427,20 @@
       </div>
     </div>
     <div class="submit-row">
-      <button type="button" class="secondary" id="cancelEdit" style="display:none;">Annuleren</button>
-      <button type="submit" class="primary" id="submitBtn">Review opslaan</button>
+      <button type="button" class="secondary" id="cancelEdit">Annuleren</button>
+      <button type="submit" class="primary" id="submitBtn">Opslaan</button>
     </div>
     </div>
   </form>
 
-  <div class="list-title">12uurtje</div>
+  <div class="list-title">
+    <span>12uurtje</span>
+    <select class="sort-select" id="sortSelect">
+      <option value="date">Nieuwste eerst</option>
+      <option value="rating-desc">Hoogste cijfer eerst</option>
+      <option value="rating-asc">Laagste cijfer eerst</option>
+    </select>
+  </div>
   <div id="list">
     <div class="loading">Bezig met laden…</div>
   </div>
@@ -405,6 +451,7 @@ let reviews = [];
 let currentRating = 0;
 let loaded = false;
 let editingId = null;
+let sortMode = 'date';
 
 const listEl = document.getElementById('list');
 const form = document.getElementById('reviewForm');
@@ -490,7 +537,11 @@ function render(){
     return;
   }
 
-  const sorted = [...reviews].sort((a,b) => (b.date || '').localeCompare(a.date || '') || b.createdAt - a.createdAt);
+  const sorted = [...reviews].sort((a,b) => {
+    if(sortMode === 'rating-desc') return (b.rating||0) - (a.rating||0) || (b.date || '').localeCompare(a.date || '');
+    if(sortMode === 'rating-asc') return (a.rating||0) - (b.rating||0) || (b.date || '').localeCompare(a.date || '');
+    return (b.date || '').localeCompare(a.date || '') || b.createdAt - a.createdAt;
+  });
 
   listEl.innerHTML = sorted.map(r => `
     <div class="entry" data-id="${r.id}">
@@ -500,6 +551,7 @@ function render(){
           <div class="place">${escapeHtml(r.place)}</div>
           <div class="price">${fmtPrice(r.price)}</div>
         </div>
+        ${r.city ? `<div class="city">${escapeHtml(r.city)}</div>` : ''}
         ${r.filling ? `<div class="filling">${escapeHtml(r.filling)}</div>` : ''}
         <div class="bites-row">
           ${[1,2,3,4,5,6,7,8,9,10].map(i => `<div class="dot ${i <= r.rating ? 'on' : ''}"></div>`).join('')}
@@ -540,6 +592,7 @@ function startEdit(id){
   editingId = id;
 
   document.getElementById('place').value = r.place || '';
+  document.getElementById('city').value = r.city || '';
   document.getElementById('filling').value = r.filling || '';
   document.getElementById('price').value = (r.price === null || r.price === undefined) ? '' : r.price;
   document.getElementById('date').value = r.date || '';
@@ -549,7 +602,6 @@ function startEdit(id){
 
   document.getElementById('formTitleText').textContent = '12uurtje bewerken';
   document.getElementById('submitBtn').textContent = 'Wijzigingen opslaan';
-  document.getElementById('cancelEdit').style.display = 'inline-block';
 
   openForm();
   form.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -563,12 +615,16 @@ function cancelEdit(){
   currentRating = 0;
   renderRatingPick();
   document.getElementById('formTitleText').textContent = 'Nieuw 12uurtje';
-  document.getElementById('submitBtn').textContent = 'Review opslaan';
-  document.getElementById('cancelEdit').style.display = 'none';
+  document.getElementById('submitBtn').textContent = 'Opslaan';
   form.classList.remove('open');
 }
 
 document.getElementById('cancelEdit').addEventListener('click', cancelEdit);
+
+document.getElementById('sortSelect').addEventListener('change', (e) => {
+  sortMode = e.target.value;
+  render();
+});
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -577,6 +633,7 @@ form.addEventListener('submit', async (e) => {
 
   const fields = {
     place,
+    city: document.getElementById('city').value.trim(),
     filling: document.getElementById('filling').value.trim(),
     price: document.getElementById('price').value ? parseFloat(document.getElementById('price').value) : null,
     date: document.getElementById('date').value,
