@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>12Uurtje</title>
+<title>12-uurtjes</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#3A2B1E">
 <link rel="icon" href="icon-192.png">
@@ -62,11 +62,23 @@
   h1 .num-accent{
     color: var(--mustard);
   }
-  .version{
+  .app-footer{
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 8px;
+    margin-top: 28px;
+    padding-top: 14px;
     font-size: 11px;
     color: var(--ink-soft);
-    letter-spacing: 0.5px;
-    margin-top: 2px;
+    letter-spacing: 0.3px;
+  }
+  .footer-version{
+    justify-self: start;
+  }
+  .footer-credit{
+    justify-self: center;
+    white-space: nowrap;
   }
   .stamp{
     text-align:right;
@@ -149,7 +161,7 @@
     border-color: var(--mustard-deep);
     box-shadow: 0 0 0 2px rgba(192,138,46,0.18);
   }
-  textarea{ resize: vertical; min-height: 44px; font-family: 'Work Sans', sans-serif; }
+  textarea{ resize: none; font-family: 'Work Sans', sans-serif; overflow: hidden; line-height: 1.4; }
 
   .rating-pick{
     display:flex;
@@ -267,10 +279,21 @@
     font-weight: 600;
     font-size: 18px;
   }
+  .entry .city-line{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    gap: 10px;
+    margin-top: 1px;
+  }
   .entry .city{
     font-size: 12.5px;
     color: var(--ink-soft);
-    margin-top: 1px;
+  }
+  .entry .score{
+    font-size: 11.5px;
+    color: var(--mustard-deep);
+    white-space: nowrap;
   }
   .entry .price{
     font-size: 13px;
@@ -352,6 +375,8 @@
     h1{ font-size: 34px; }
     .row{ flex-direction: column; gap: 10px; }
     .row .field{ max-width: none !important; }
+    .row.row-compact{ flex-direction: row; gap: 10px; }
+    .row.row-compact .field{ max-width: 50% !important; }
     .entry .date-col{ width: 48px; font-size: 11px; }
   }
 </style>
@@ -361,7 +386,6 @@
   <header>
     <div>
       <h1><span class="num-accent">12</span>Uurtje</h1>
-      <div class="version">v1.0</div>
     </div>
     <div class="stamp">
       <div class="num" id="avgNum">–</div>
@@ -382,19 +406,21 @@
         <label for="place">Waar heb je gegeten?</label>
         <input type="text" id="place" placeholder="bijv. Bakkerij Van Dijk" required>
       </div>
-      <div class="field" style="max-width: 148px;">
-        <label for="date">Datum</label>
-        <input type="date" id="date" style="text-align: right;">
-      </div>
     </div>
     <div class="row">
       <div class="field">
         <label for="city">Plaats</label>
         <input type="text" id="city" placeholder="bijv. Enschede">
       </div>
+    </div>
+    <div class="row row-compact">
+      <div class="field" style="max-width: 148px;">
+        <label for="date">Datum</label>
+        <input type="date" id="date">
+      </div>
       <div class="field" style="max-width: 148px;">
         <label for="price">Prijs (€)</label>
-        <input type="number" id="price" step="0.01" min="0" placeholder="3,50" style="text-align: right;">
+        <input type="number" id="price" step="0.01" min="0" placeholder="3,50">
       </div>
     </div>
     <div class="row">
@@ -423,7 +449,7 @@
     <div class="row">
       <div class="field">
         <label for="notes">Notities</label>
-        <textarea id="notes" placeholder="Hoe was het broodje, de service, zou je het weer halen?"></textarea>
+        <textarea id="notes" rows="5" placeholder="Hoe was het broodje, de service, zou je het weer halen?"></textarea>
       </div>
     </div>
     <div class="submit-row">
@@ -439,11 +465,18 @@
       <option value="date">Nieuwste eerst</option>
       <option value="rating-desc">Hoogste cijfer eerst</option>
       <option value="rating-asc">Laagste cijfer eerst</option>
+      <option value="score-desc">Hoogste score eerst</option>
+      <option value="score-asc">Laagste score eerst</option>
     </select>
   </div>
   <div id="list">
     <div class="loading">Bezig met laden…</div>
   </div>
+  <footer class="app-footer">
+    <span class="footer-version">v0.2</span>
+    <span class="footer-credit">mrxrsb powerd by Claude AI</span>
+    <span></span>
+  </footer>
 </div>
 
 <script>
@@ -493,6 +526,12 @@ function fmtPrice(p){
   return '€ ' + Number(p).toFixed(2).replace('.', ',');
 }
 
+function fmtScore(rating, price){
+  const p = Number(price);
+  if(!rating || !p || p <= 0) return '';
+  return (rating / p).toFixed(3).replace('.', ',');
+}
+
 async function loadReviews(){
   try{
     const raw = localStorage.getItem('12uurtje_reviews');
@@ -537,9 +576,22 @@ function render(){
     return;
   }
 
+  function scoreValue(r){
+    const p = Number(r.price);
+    if(!r.rating || !p || p <= 0) return null;
+    return r.rating / p;
+  }
+
   const sorted = [...reviews].sort((a,b) => {
     if(sortMode === 'rating-desc') return (b.rating||0) - (a.rating||0) || (b.date || '').localeCompare(a.date || '');
     if(sortMode === 'rating-asc') return (a.rating||0) - (b.rating||0) || (b.date || '').localeCompare(a.date || '');
+    if(sortMode === 'score-desc' || sortMode === 'score-asc'){
+      const sa = scoreValue(a), sb = scoreValue(b);
+      if(sa === null && sb === null) return (b.date || '').localeCompare(a.date || '');
+      if(sa === null) return 1;
+      if(sb === null) return -1;
+      return sortMode === 'score-desc' ? (sb - sa) : (sa - sb);
+    }
     return (b.date || '').localeCompare(a.date || '') || b.createdAt - a.createdAt;
   });
 
@@ -551,7 +603,10 @@ function render(){
           <div class="place">${escapeHtml(r.place)}</div>
           <div class="price">${fmtPrice(r.price)}</div>
         </div>
-        ${r.city ? `<div class="city">${escapeHtml(r.city)}</div>` : ''}
+        ${r.city || fmtScore(r.rating, r.price) ? `<div class="city-line">
+          <div class="city">${r.city ? escapeHtml(r.city) : ''}</div>
+          <div class="score">${fmtScore(r.rating, r.price)}</div>
+        </div>` : ''}
         ${r.filling ? `<div class="filling">${escapeHtml(r.filling)}</div>` : ''}
         <div class="bites-row">
           ${[1,2,3,4,5,6,7,8,9,10].map(i => `<div class="dot ${i <= r.rating ? 'on' : ''}"></div>`).join('')}
@@ -597,6 +652,7 @@ function startEdit(id){
   document.getElementById('price').value = (r.price === null || r.price === undefined) ? '' : r.price;
   document.getElementById('date').value = r.date || '';
   document.getElementById('notes').value = r.notes || '';
+  autoGrowNotes();
   currentRating = r.rating || 0;
   renderRatingPick();
 
@@ -608,6 +664,26 @@ function startEdit(id){
   document.getElementById('place').focus();
 }
 
+let notesMinHeight = null;
+
+function getNotesMinHeight(el){
+  const cs = getComputedStyle(el);
+  const lineHeight = parseFloat(cs.lineHeight) || (parseFloat(cs.fontSize) * 1.4);
+  const paddingV = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+  const borderV = parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
+  const rows = parseInt(el.getAttribute('rows'), 10) || 5;
+  return Math.ceil(lineHeight * rows + paddingV + borderV);
+}
+
+function autoGrowNotes(){
+  const el = document.getElementById('notes');
+  if(notesMinHeight === null){
+    notesMinHeight = getNotesMinHeight(el);
+  }
+  el.style.height = 'auto';
+  el.style.height = Math.max(el.scrollHeight, notesMinHeight) + 'px';
+}
+
 function cancelEdit(){
   editingId = null;
   form.reset();
@@ -617,9 +693,11 @@ function cancelEdit(){
   document.getElementById('formTitleText').textContent = 'Nieuw 12uurtje';
   document.getElementById('submitBtn').textContent = 'Opslaan';
   form.classList.remove('open');
+  autoGrowNotes();
 }
 
 document.getElementById('cancelEdit').addEventListener('click', cancelEdit);
+document.getElementById('notes').addEventListener('input', autoGrowNotes);
 
 document.getElementById('sortSelect').addEventListener('change', (e) => {
   sortMode = e.target.value;
@@ -660,6 +738,7 @@ form.addEventListener('submit', async (e) => {
 });
 
 loadReviews();
+autoGrowNotes();
 
 if('serviceWorker' in navigator){
   window.addEventListener('load', () => {
