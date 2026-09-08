@@ -63,8 +63,8 @@
     color: var(--mustard);
   }
   .app-footer{
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    display: flex;
+    justify-content: center;
     align-items: center;
     gap: 8px;
     margin-top: 28px;
@@ -73,11 +73,7 @@
     color: var(--ink-soft);
     letter-spacing: 0.3px;
   }
-  .footer-version{
-    justify-self: start;
-  }
   .footer-credit{
-    justify-self: center;
     white-space: nowrap;
   }
   .stamp{
@@ -220,6 +216,50 @@
     cursor: pointer;
   }
   button.secondary:hover{ border-color: var(--ink-soft); color: var(--ink); }
+
+  .modal-backdrop{
+    display:none;
+    position: fixed;
+    inset: 0;
+    background: rgba(58,43,30,0.45);
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 100;
+  }
+  .modal-backdrop.open{ display: flex; }
+  .modal-card{
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 22px;
+    max-width: 320px;
+    width: 100%;
+    box-shadow: 0 10px 30px rgba(58,43,30,0.25);
+  }
+  .modal-text{
+    font-size: 15px;
+    color: var(--ink);
+    margin-bottom: 18px;
+    line-height: 1.4;
+  }
+  .modal-actions{
+    display:flex;
+    justify-content:flex-end;
+    gap: 10px;
+  }
+  button.danger{
+    font-family: 'Work Sans', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    background: var(--tomato);
+    color: var(--paper);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 2px;
+    cursor: pointer;
+  }
+  button.danger:hover{ opacity: 0.9; }
 
   .list-title{
     display: flex;
@@ -473,10 +513,20 @@
     <div class="loading">Bezig met laden…</div>
   </div>
   <footer class="app-footer">
-    <span class="footer-version">v0.2</span>
+    <span class="footer-version">v1.0</span>
+    <span>|</span>
     <span class="footer-credit">mrxrsb powerd by Claude AI</span>
-    <span></span>
   </footer>
+</div>
+
+<div class="modal-backdrop" id="confirmBackdrop">
+  <div class="modal-card">
+    <div class="modal-text">Weet je zeker dat je dit 12uurtje wilt verwijderen?</div>
+    <div class="modal-actions">
+      <button type="button" class="secondary" id="confirmNo">Nee</button>
+      <button type="button" class="danger" id="confirmYes">Ja</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -621,7 +671,7 @@ function render(){
   `).join('');
 
   [...listEl.querySelectorAll('.del')].forEach(btn => {
-    btn.addEventListener('click', () => deleteReview(btn.dataset.id));
+    btn.addEventListener('click', () => askDelete(btn.dataset.id));
   });
   [...listEl.querySelectorAll('.edit')].forEach(btn => {
     btn.addEventListener('click', () => startEdit(btn.dataset.id));
@@ -634,12 +684,34 @@ function escapeHtml(str){
   return div.innerHTML;
 }
 
+let pendingDeleteId = null;
+
+function askDelete(id){
+  pendingDeleteId = id;
+  document.getElementById('confirmBackdrop').classList.add('open');
+}
+
+function closeConfirm(){
+  pendingDeleteId = null;
+  document.getElementById('confirmBackdrop').classList.remove('open');
+}
+
 async function deleteReview(id){
   reviews = reviews.filter(r => r.id !== id);
   if(editingId === id) cancelEdit();
   render();
   await saveReviews();
 }
+
+document.getElementById('confirmNo').addEventListener('click', closeConfirm);
+document.getElementById('confirmYes').addEventListener('click', async () => {
+  const id = pendingDeleteId;
+  closeConfirm();
+  if(id) await deleteReview(id);
+});
+document.getElementById('confirmBackdrop').addEventListener('click', (e) => {
+  if(e.target.id === 'confirmBackdrop') closeConfirm();
+});
 
 function startEdit(id){
   const r = reviews.find(x => x.id === id);
