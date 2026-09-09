@@ -64,7 +64,7 @@
   }
   .app-footer{
     display: flex;
-    justify-content: center;
+    justify-content: space-between;
     align-items: center;
     gap: 8px;
     margin-top: 28px;
@@ -72,6 +72,12 @@
     font-size: 11px;
     color: var(--ink-soft);
     letter-spacing: 0.3px;
+  }
+  .footer-center{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
   }
   .footer-credit{
     white-space: nowrap;
@@ -287,6 +293,30 @@
   .sort-select:focus{
     outline: none;
     border-color: var(--mustard-deep);
+  }
+  .backup-row{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  .backup-sep{ color: var(--line); }
+  .link-btn{
+    font-family: 'Work Sans', sans-serif;
+    font-size: 11px;
+    color: var(--ink-soft);
+    background: none;
+    border: none;
+    padding: 2px 4px;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .link-btn:hover{ color: var(--ink); }
+  .link-icon{
+    font-size: 15px;
+    vertical-align: -1px;
+    display: inline-block;
   }
 
   .entry{
@@ -513,15 +543,23 @@
     <div class="loading">Bezig met laden…</div>
   </div>
   <footer class="app-footer">
-    <span class="footer-version">v1.0</span>
-    <span>|</span>
-    <span class="footer-credit">mrxrsb powerd by Claude AI</span>
+    <span class="footer-center">
+      <span class="footer-version">v1.1</span>
+      <span>|</span>
+      <span class="footer-credit">mrxrsb powerd by Claude AI</span>
+    </span>
+    <span class="backup-row">
+      <button type="button" class="link-btn" id="exportBtn"><span class="link-icon">⬇</span> Export</button>
+      <span class="backup-sep">|</span>
+      <button type="button" class="link-btn" id="importBtn"><span class="link-icon">⬆</span> Import</button>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+    </span>
   </footer>
 </div>
 
 <div class="modal-backdrop" id="confirmBackdrop">
   <div class="modal-card">
-    <div class="modal-text">Weet je zeker dat je dit 12uurtje wilt verwijderen?</div>
+    <div class="modal-text" id="confirmText">Weet je zeker dat je dit 12uurtje wilt verwijderen?</div>
     <div class="modal-actions">
       <button type="button" class="secondary" id="confirmNo">Nee</button>
       <button type="button" class="danger" id="confirmYes">Ja</button>
@@ -579,7 +617,7 @@ function fmtPrice(p){
 function fmtScore(rating, price){
   const p = Number(price);
   if(!rating || !p || p <= 0) return '';
-  return (rating / p).toFixed(3).replace('.', ',');
+  return ((rating / p) * 10).toFixed(2).replace('.', ',');
 }
 
 async function loadReviews(){
@@ -684,16 +722,21 @@ function escapeHtml(str){
   return div.innerHTML;
 }
 
-let pendingDeleteId = null;
+let confirmCallback = null;
 
-function askDelete(id){
-  pendingDeleteId = id;
+function openConfirm(message, onYes){
+  document.getElementById('confirmText').textContent = message;
+  confirmCallback = onYes;
   document.getElementById('confirmBackdrop').classList.add('open');
 }
 
 function closeConfirm(){
-  pendingDeleteId = null;
+  confirmCallback = null;
   document.getElementById('confirmBackdrop').classList.remove('open');
+}
+
+function askDelete(id){
+  openConfirm('Weet je zeker dat je dit 12uurtje wilt verwijderen?', () => deleteReview(id));
 }
 
 async function deleteReview(id){
@@ -705,12 +748,55 @@ async function deleteReview(id){
 
 document.getElementById('confirmNo').addEventListener('click', closeConfirm);
 document.getElementById('confirmYes').addEventListener('click', async () => {
-  const id = pendingDeleteId;
+  const cb = confirmCallback;
   closeConfirm();
-  if(id) await deleteReview(id);
+  if(cb) await cb();
 });
 document.getElementById('confirmBackdrop').addEventListener('click', (e) => {
   if(e.target.id === 'confirmBackdrop') closeConfirm();
+});
+
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const dataStr = JSON.stringify(reviews, null, 2);
+  const blob = new Blob([dataStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '12Uurtje-backup.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('importBtn').addEventListener('click', () => {
+  document.getElementById('importFile').click();
+});
+
+document.getElementById('importFile').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    let parsed;
+    try{
+      parsed = JSON.parse(reader.result);
+      if(!Array.isArray(parsed)) throw new Error('geen lijst');
+    }catch(err){
+      alert('Kon het bestand niet lezen. Kies een geldig 12uurtje-exportbestand (.json).');
+      return;
+    }
+    openConfirm(
+      `Dit vervangt je huidige ${reviews.length} 12uurtje(s) door ${parsed.length} uit het bestand. Doorgaan?`,
+      async () => {
+        reviews = parsed;
+        render();
+        await saveReviews();
+      }
+    );
+  };
+  reader.readAsText(file);
 });
 
 function startEdit(id){

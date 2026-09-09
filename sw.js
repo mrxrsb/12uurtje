@@ -1,4 +1,4 @@
-const CACHE_NAME = '12uurtje-cache-v1.0-final';
+const CACHE_NAME = '12uurtje-cache-v1.1.1';
 const ASSETS = [
   './',
   './index.html',
